@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "makeup"
+version = "0.1.0"
+description = ""
+authors = ["Josh Steffen <josh0x53@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.scripts]
+makeup = "makeup.main:app"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pycparser = "^2.21"
+typer = {extras = ["all"], version = "^0.4.0"}
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+black = "^21.12b0"
+flake8 = "^4.0.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
