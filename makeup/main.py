@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from pycparser import c_ast, c_parser  # TODO move shit out of here
 
@@ -42,27 +43,27 @@ class Type:
 
 
 @dataclass
-class NamedType(Type):
-    name: str
+class BuiltinType(Type):
+    names: list[str]
 
 
 @dataclass
-class StructType(NamedType):
-    pass
+class StructType(Type):
+    fields: list[tuple[str, Type]]
 
 
 @dataclass
-class Array(Type):
-    t: Type
-    n: int
+class ArrayType(Type):
+    type: Type
+    size: int
 
 
 @dataclass
-class Pointer(Type):
-    t: Type
+class PointerType(Type):
+    type: Type
 
 
-class NotHandled(Type):
+class UnhandledType(Type):
     pass
 
 
@@ -71,114 +72,129 @@ def parse(input):
     ast = parser.parse(input)
 
     structs = {}
+    typedefs = {}
 
-    def get_type(decl) -> Type:
-        if isinstance(decl, c_ast.PtrDecl):
-            return Pointer(get_type(decl.type))
-        elif isinstance(decl, c_ast.ArrayDecl):
-            if isinstance(decl.dim, c_ast.Constant):
-                return Array(get_type(decl.type), int(decl.dim.value, 0))
+    def get_type(node) -> Type:
+        if isinstance(node, c_ast.Decl):
+            return get_type(node.type)
+        elif isinstance(node, c_ast.TypeDecl):
+            return get_type(node.type)
+        elif isinstance(node, c_ast.IdentifierType):
+            if node.names[0] in typedefs:
+                return typedefs[node.names[0]]
+            return BuiltinType(node.names)
+        elif isinstance(node, c_ast.PtrDecl):
+            return PointerType(get_type(node.type))
+        elif isinstance(node, c_ast.ArrayDecl):
+            if isinstance(node.dim, c_ast.Constant):
+                return ArrayType(get_type(node.type), int(node.dim.value, 0))
             else:
-                # it might be an enum
+                # TODO
+                # it might be an enum or something
                 # if so maybe generated code could just use the enum's name
                 # kinda hacky but probably works most if not all of the time
-                return NotHandled()
-        else:
-            if isinstance(decl.type, c_ast.Struct):
-                return StructType(decl.type.name)
+                return UnhandledType()
+        elif isinstance(node, c_ast.Typedef):
+            type = get_type(node.type)
+            typedefs[node.name] = type
+            return type
+        elif isinstance(node, c_ast.Struct):
+            if node.decls is None:
+                if node.name not in structs:
+                    structs[node.name] = StructType([])
+                return structs[node.name]
+
+            fields = []
+            for decl in node.decls:
+                fields.append((decl.name, get_type(decl.type)))
+            if node.name in structs:
+                struct = structs[node.name]
+                struct.fields = fields
             else:
-                return NamedType(decl.type.names[0])
+                struct = StructType(fields)
+                if node.name is not None:
+                    structs[node.name] = struct
+            return struct
+        else:
+            return UnhandledType()
 
     for node in ast:
-        if isinstance(node, c_ast.Decl) and isinstance(node.type, c_ast.Struct):
-            struct = {}
-            for decl in node.type.decls:
-                struct[decl.name] = get_type(decl.type)
-            structs[node.type.name] = struct
+        get_type(node)
 
-    return structs
+    return structs, typedefs
 
 
-def makeup(input):
-    structs = parse(input)
+def makeup(input: str) -> None:
+    structs, typedefs = parse(input)
 
     makeup_file = open("makeup.h", "w")
 
-    def emit(text=""):
+    def emit(text: str = "") -> None:
         makeup_file.write(text)
         makeup_file.write("\n")
 
-    def gen_printer(type):
-        if isinstance(type, NamedType):
-            if isinstance(type, StructType):
-                emit(f"makeup_dump_struct_{type.name}(value, indent);")
-                emit(f"value = (void*)((char*)value + sizeof(struct {type.name}));")
-            else:
-                emit(f"makeup_dump_{type.name}(value, indent + MAKEUP_INDENT);")
-                emit(f"value = (void*)((char*)value + sizeof({type.name}));")
-                return
-        elif isinstance(type, Array):
-            emit("{")
-            emit("int i;")
-            emit("int tmp_indent = indent; int indent = tmp_indent + MAKEUP_INDENT;")
-            emit('MAKEUP_PRINTER("[\\n");')
-            emit(f"for(i = 0; i < {type.n}; i++) {{")
-            emit('MAKEUP_PRINTER("%*s", indent, "");')
-            gen_printer(type.t)
-            emit('MAKEUP_PRINTER(",\\n");')
-            emit("}")
-            emit("}")
-            emit('MAKEUP_PRINTER("%*s]", indent, "");')
-        elif isinstance(type, Pointer):
-            emit('MAKEUP_PRINTER("%#p", value);')
-        else:
-            emit('MAKEUP_PRINTER("not handled");')
+    def gen_indent(indent: int) -> None:
+        spaces = ' ' * indent
+        emit(f'printf("{spaces}");')
 
-    def gen_struct_printer(struct):
-        emit('MAKEUP_PRINTER("{\\n");')
-        for name, type in struct.items():
-            emit("{")
-            emit(f"void *tmp_value = (void*)(&value->{name}); void *value = tmp_value;")
-            emit("int tmp_indent = indent; int indent = tmp_indent + MAKEUP_INDENT;")
-            emit(f'MAKEUP_PRINTER("%*s{name} = ", indent, "");')
-            gen_printer(type)
-            emit('MAKEUP_PRINTER("\\n");')
-            emit("}")
-        emit('MAKEUP_PRINTER("%*s}", indent, "");')
+    indent_size = 4
+    max_array_size = 10
 
-    emit("#include <stdio.h>")
-    emit()
-    emit("#ifndef MAKEUP_PRINTER")
-    emit("#define MAKEUP_PRINTER printf")
-    emit("#endif")
-    emit()
-    emit("#ifndef MAKEUP_INDENT")
-    emit("#define MAKEUP_INDENT 2")
-    emit("#endif")
-    emit()
-    emit("void makeup_dump_int(int *value, int indent);")
-    emit("void makeup_dump_char(char *value, int indent);")
-    emit("void makeup_dump_float(float *value, int indent);")
-    emit()
+    def gen_printer(type: Type, expr: str, indent: int = 0) -> None:
+        match type:
+            case BuiltinType(names):
+                # TODO try to handle these correctly
+                if 'float' in names:
+                    fmt = 'f'
+                elif 'unsigned' in names:
+                    fmt = 'u'
+                else:
+                    fmt = 'd'
 
-    for name in structs:
-        emit(f"void makeup_dump_{name}(struct {name} *value, int indent);")
-    emit()
+                emit(f'printf("%{fmt}", {expr});')
 
-    emit("#ifdef MAKEUP_IMPLEMENTATION")
-    emit()
+            case ArrayType(type, size):
+                # TODO generate a for loop
+                emit('printf("[\\n");')
+                for i in range(min(size, max_array_size)):
+                    gen_indent(indent + indent_size)
+                    gen_printer(type, expr + f'[{i}]', indent + indent_size)
+                    emit('printf(",\\n");')
+                if size > max_array_size:
+                    gen_indent(indent + indent_size)
+                    emit('printf("...\\n");')
+                gen_indent(indent)
+                emit('printf("]");')
 
-    emit('void makeup_dump_int(int *value, int indent) { MAKEUP_PRINTER("%d", *value); }')
-    emit('void makeup_dump_char(char *value, int indent) { MAKEUP_PRINTER("%d", *value); }')
-    emit('void makeup_dump_float(float *value, int indent) { MAKEUP_PRINTER("%f", *value); }')
-    emit()
+            case PointerType(type):
+                emit(f'printf("0x%p", {expr});')
+
+            case StructType(fields):
+                emit('printf("{\\n");')
+                for name, type in fields:
+                    gen_indent(indent + indent_size)
+                    emit(f'printf("{name} = ");')
+                    gen_printer(type, expr + f'.{name}', indent + indent_size)
+                    emit('printf(",\\n");')
+                gen_indent(indent)
+                emit('printf("}");')
+
+            case UnhandledType():
+                emit('printf("unhandled");')
+
+            case _:
+                raise NotImplementedError(type)
+
+    emit('#include <stdio.h>')
 
     for name, type in structs.items():
-        emit(f"void makeup_dump_struct_{name}(struct {name} *value, int indent) {{")
-        gen_struct_printer(type)
-        emit("}")
-        emit()
+        emit(f'void makeup_dump_struct_{name}(struct {name} *value, int indent) {{')
+        gen_printer(type, '(*value)')
+        emit('}')
 
-    emit("#endif")
+    for name, type in typedefs.items():
+        emit(f'void makeup_dump_{name}({name} *value, int indent) {{')
+        gen_printer(type, '(*value)')
+        emit('}')
 
     makeup_file.close()
