@@ -14,7 +14,6 @@ pycparser = "^2.21"
 typer = {extras = ["all"], version = "^0.4.0"}
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
 black = "^21.12b0"
 flake8 = "^4.0.1"
 
