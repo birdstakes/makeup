@@ -89,14 +89,18 @@ def parse(input):
     def get_type(node) -> Type:
         if isinstance(node, c_ast.Decl):
             return get_type(node.type)
+
         elif isinstance(node, c_ast.TypeDecl):
             return get_type(node.type)
+
         elif isinstance(node, c_ast.IdentifierType):
             if node.names[0] in typedefs:
                 return typedefs[node.names[0]]
             return BuiltinType(node.names)
+
         elif isinstance(node, c_ast.PtrDecl):
             return PointerType(get_type(node.type))
+
         elif isinstance(node, c_ast.ArrayDecl):
             if isinstance(node.dim, c_ast.Constant):
                 return ArrayType(get_type(node.type), int(node.dim.value, 0))
@@ -110,6 +114,7 @@ def parse(input):
             type = get_type(node.type)
             typedefs[node.name] = type
             return type
+
         elif isinstance(node, c_ast.Struct):
             if node.decls is None:
                 if node.name not in structs:
@@ -126,6 +131,7 @@ def parse(input):
                 structs[node.name] = struct
 
             return struct
+
         elif isinstance(node, c_ast.Enum):
             if node.values is None:
                 if node.name not in enums:
@@ -140,6 +146,7 @@ def parse(input):
                 enums[node.name] = enum
 
             return enum
+
         else:
             return UnhandledType()
 
