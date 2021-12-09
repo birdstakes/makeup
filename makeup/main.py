@@ -193,7 +193,7 @@ def makeup(input: str) -> None:
         emit('}')
 
     for name, type in typedefs.items():
-        emit(f'void makeup_dump_{name}({name} *value, int indent) {{')
+        emit(f'void makeup_dump_{name}({name} *value) {{')
         gen_printer(type, '(*value)')
         emit('}')
 
