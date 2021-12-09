@@ -76,6 +76,7 @@ def parse(input: str) -> Types:
                 # if so maybe generated code could just use the enum's name
                 # kinda hacky but probably works most if not all of the time
                 return UnhandledType()
+
         elif isinstance(node, c_ast.Typedef):
             type = get_type(node.type)
             typedefs[node.name] = type
