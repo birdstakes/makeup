@@ -160,7 +160,7 @@ def makeup(input: str) -> None:
 
     def gen_indent(indent: int) -> None:
         spaces = " " * indent
-        emit(f'printf("{spaces}");')
+        emit(f'MAKEUP_PRINT("{spaces}");')
 
     indent_size = 4
     max_array_size = 10
@@ -170,54 +170,73 @@ def makeup(input: str) -> None:
             case BuiltinType(names):
                 # TODO try to handle these correctly
                 if "float" in names:
-                    fmt = "f"
+                    emit(f"MAKEUP_PRINT_FLOAT({expr});")
                 elif "unsigned" in names:
-                    fmt = "u"
+                    emit(f"MAKEUP_PRINT_UNSIGNED({expr});")
                 else:
-                    fmt = "d"
-
-                emit(f'printf("%{fmt}", {expr});')
+                    emit(f"MAKEUP_PRINT_SIGNED({expr});")
 
             case ArrayType(type, size):
                 # TODO generate a for loop
-                emit('printf("[\\n");')
+                emit('MAKEUP_PRINT("[\\n");')
                 for i in range(min(size, max_array_size)):
                     gen_indent(indent + indent_size)
-                    gen_printer(type, expr + f"[{i}]", indent + indent_size)
-                    emit('printf(",\\n");')
+                    gen_printer(type, f"{expr}[{i}]", indent + indent_size)
+                    emit('MAKEUP_PRINT(",\\n");')
                 if size > max_array_size:
                     gen_indent(indent + indent_size)
-                    emit('printf("...\\n");')
+                    emit('MAKEUP_PRINT("...\\n");')
                 gen_indent(indent)
-                emit('printf("]");')
+                emit('MAKEUP_PRINT("]");')
 
             case PointerType(type):
-                emit(f'printf("0x%p", {expr});')
+                emit(f"MAKEUP_PRINT_POINTER({expr});")
 
             case StructType(fields):
-                emit('printf("{\\n");')
+                emit('MAKEUP_PRINT("{\\n");')
                 for name, type in fields:
                     gen_indent(indent + indent_size)
-                    emit(f'printf("{name} = ");')
-                    gen_printer(type, expr + f".{name}", indent + indent_size)
-                    emit('printf(",\\n");')
+                    emit(f'MAKEUP_PRINT("{name} = ");')
+                    gen_printer(type, f"{expr}.{name}", indent + indent_size)
+                    emit('MAKEUP_PRINT(",\\n");')
                 gen_indent(indent)
-                emit('printf("}");')
+                emit('MAKEUP_PRINT("}");')
 
             case EnumType(enumerators):
                 emit(f"switch({expr}) {{")
                 for name in enumerators:
-                    emit(f'case {name}: printf("{name}"); break;')
-                emit(f'default: printf("%d (invalid enumerator)", {expr}); break;')
+                    emit(f'case {name}: MAKEUP_PRINT("{name}"); break;')
+                emit(
+                    f'default: MAKEUP_PRINT("%d (invalid enumerator)", {expr}); break;'
+                )
                 emit("}")
 
             case UnhandledType():
-                emit('printf("unhandled");')
+                emit('MAKEUP_PRINT("unhandled");')
 
             case _:
                 raise NotImplementedError(type)
 
+    emit("#ifndef MAKEUP_PRINT")
     emit("#include <stdio.h>")
+    emit("#define MAKEUP_PRINT printf")
+    emit("#endif")
+
+    emit("#ifndef MAKEUP_PRINT_SIGNED")
+    emit('#define MAKEUP_PRINT_SIGNED(i) MAKEUP_PRINT("%d", i)')
+    emit("#endif")
+
+    emit("#ifndef MAKEUP_PRINT_UNSIGNED")
+    emit('#define MAKEUP_PRINT_UNSIGNED(u) MAKEUP_PRINT("%u", u)')
+    emit("#endif")
+
+    emit("#ifndef MAKEUP_PRINT_FLOAT")
+    emit('#define MAKEUP_PRINT_FLOAT(f) MAKEUP_PRINT("%f", f)')
+    emit("#endif")
+
+    emit("#ifndef MAKEUP_PRINT_POINTER")
+    emit('#define MAKEUP_PRINT_POINTER(p) MAKEUP_PRINT("0x%p", p)')
+    emit("#endif")
 
     for name, type in types.enums.items():
         emit(f"void makeup_dump_enum_{name}(enum {name} *value) {{")
