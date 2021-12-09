@@ -71,6 +71,13 @@ class UnhandledType(Type):
     pass
 
 
+@dataclass
+class Types:
+    enums: dict[str, EnumType]
+    structs: dict[str, StructType]
+    typedefs: dict[str, Type]
+
+
 def parse(input):
     parser = c_parser.CParser()
     ast = parser.parse(input)
@@ -139,11 +146,11 @@ def parse(input):
     for node in ast:
         get_type(node)
 
-    return structs, typedefs
+    return Types(enums, structs, typedefs)
 
 
 def makeup(input: str) -> None:
-    structs, typedefs = parse(input)
+    types = parse(input)
 
     makeup_file = open("makeup.h", "w")
 
@@ -212,12 +219,17 @@ def makeup(input: str) -> None:
 
     emit("#include <stdio.h>")
 
-    for name, type in structs.items():
+    for name, type in types.enums.items():
+        emit(f"void makeup_dump_enum_{name}(enum {name} *value) {{")
+        gen_printer(type, "(*value)")
+        emit("}")
+
+    for name, type in types.structs.items():
         emit(f"void makeup_dump_struct_{name}(struct {name} *value) {{")
         gen_printer(type, "(*value)")
         emit("}")
 
-    for name, type in typedefs.items():
+    for name, type in types.typedefs.items():
         emit(f"void makeup_dump_{name}({name} *value) {{")
         gen_printer(type, "(*value)")
         emit("}")
