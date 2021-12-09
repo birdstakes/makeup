@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from pycparser import c_ast, c_parser  # TODO move shit out of here
 
@@ -45,6 +44,11 @@ class Type:
 @dataclass
 class BuiltinType(Type):
     names: list[str]
+
+
+@dataclass
+class EnumType(Type):
+    values: list[tuple[str, int]]
 
 
 @dataclass
@@ -134,7 +138,7 @@ def makeup(input: str) -> None:
         makeup_file.write("\n")
 
     def gen_indent(indent: int) -> None:
-        spaces = ' ' * indent
+        spaces = " " * indent
         emit(f'printf("{spaces}");')
 
     indent_size = 4
@@ -144,12 +148,12 @@ def makeup(input: str) -> None:
         match type:
             case BuiltinType(names):
                 # TODO try to handle these correctly
-                if 'float' in names:
-                    fmt = 'f'
-                elif 'unsigned' in names:
-                    fmt = 'u'
+                if "float" in names:
+                    fmt = "f"
+                elif "unsigned" in names:
+                    fmt = "u"
                 else:
-                    fmt = 'd'
+                    fmt = "d"
 
                 emit(f'printf("%{fmt}", {expr});')
 
@@ -158,7 +162,7 @@ def makeup(input: str) -> None:
                 emit('printf("[\\n");')
                 for i in range(min(size, max_array_size)):
                     gen_indent(indent + indent_size)
-                    gen_printer(type, expr + f'[{i}]', indent + indent_size)
+                    gen_printer(type, expr + f"[{i}]", indent + indent_size)
                     emit('printf(",\\n");')
                 if size > max_array_size:
                     gen_indent(indent + indent_size)
@@ -174,7 +178,7 @@ def makeup(input: str) -> None:
                 for name, type in fields:
                     gen_indent(indent + indent_size)
                     emit(f'printf("{name} = ");')
-                    gen_printer(type, expr + f'.{name}', indent + indent_size)
+                    gen_printer(type, expr + f".{name}", indent + indent_size)
                     emit('printf(",\\n");')
                 gen_indent(indent)
                 emit('printf("}");')
@@ -185,16 +189,16 @@ def makeup(input: str) -> None:
             case _:
                 raise NotImplementedError(type)
 
-    emit('#include <stdio.h>')
+    emit("#include <stdio.h>")
 
     for name, type in structs.items():
-        emit(f'void makeup_dump_struct_{name}(struct {name} *value, int indent) {{')
-        gen_printer(type, '(*value)')
-        emit('}')
+        emit(f"void makeup_dump_struct_{name}(struct {name} *value, int indent) {{")
+        gen_printer(type, "(*value)")
+        emit("}")
 
     for name, type in typedefs.items():
-        emit(f'void makeup_dump_{name}({name} *value) {{')
-        gen_printer(type, '(*value)')
-        emit('}')
+        emit(f"void makeup_dump_{name}({name} *value) {{")
+        gen_printer(type, "(*value)")
+        emit("}")
 
     makeup_file.close()
