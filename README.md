@@ -13,6 +13,4 @@ Sometimes you're dealing with a platform that doesn't have a nice debugger and y
 ## TODO
 
 * clean the fuck up
-* support typedefs
 * handle all the TODOs sprinkled throughout
-* wrapper functions that don't take an indent arg?

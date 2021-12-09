@@ -48,7 +48,7 @@ class BuiltinType(Type):
 
 @dataclass
 class EnumType(Type):
-    values: list[tuple[str, int]]
+    enumerators: list[str]
 
 
 @dataclass
@@ -77,6 +77,7 @@ def parse(input):
 
     structs = {}
     typedefs = {}
+    enums = {}
 
     def get_type(node) -> Type:
         if isinstance(node, c_ast.Decl):
@@ -111,14 +112,27 @@ def parse(input):
             fields = []
             for decl in node.decls:
                 fields.append((decl.name, get_type(decl.type)))
-            if node.name in structs:
-                struct = structs[node.name]
-                struct.fields = fields
-            else:
-                struct = StructType(fields)
-                if node.name is not None:
-                    structs[node.name] = struct
+
+            struct = structs.get(node.name, StructType([]))
+            struct.fields = fields
+            if node.name is not None:
+                structs[node.name] = struct
+
             return struct
+        elif isinstance(node, c_ast.Enum):
+            if node.values is None:
+                if node.name not in enums:
+                    enums[node.name] = EnumType([])
+                return enums[node.name]
+
+            enumerators = [e.name for e in node.values.enumerators]
+
+            enum = enums.get(node.name, EnumType([]))
+            enum.enumerators = enumerators
+            if node.name is not None:
+                enums[node.name] = enum
+
+            return enum
         else:
             return UnhandledType()
 
@@ -183,6 +197,13 @@ def makeup(input: str) -> None:
                 gen_indent(indent)
                 emit('printf("}");')
 
+            case EnumType(enumerators):
+                emit(f"switch({expr}) {{")
+                for name in enumerators:
+                    emit(f'case {name}: printf("{name}"); break;')
+                emit(f'default: printf("%d (invalid enumerator)", {expr}); break;')
+                emit("}")
+
             case UnhandledType():
                 emit('printf("unhandled");')
 
@@ -192,7 +213,7 @@ def makeup(input: str) -> None:
     emit("#include <stdio.h>")
 
     for name, type in structs.items():
-        emit(f"void makeup_dump_struct_{name}(struct {name} *value, int indent) {{")
+        emit(f"void makeup_dump_struct_{name}(struct {name} *value) {{")
         gen_printer(type, "(*value)")
         emit("}")
 
