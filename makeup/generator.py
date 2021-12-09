@@ -75,6 +75,17 @@ def generate(types: Types, indent_size: int = 4, max_array_size: int = 10) -> st
             case _:
                 raise NotImplementedError(type)
 
+    for name, type in types.enums.items():
+        emit(f"void makeup_dump_enum_{name}(enum {name} *value);")
+
+    for name, type in types.structs.items():
+        emit(f"void makeup_dump_struct_{name}(struct {name} *value);")
+
+    for name, type in types.typedefs.items():
+        emit(f"void makeup_dump_{name}({name} *value);")
+
+    emit("#ifdef MAKEUP_IMPLEMENTATION")
+
     emit("#ifndef MAKEUP_PRINT")
     emit("#include <stdio.h>")
     emit("#define MAKEUP_PRINT printf")
@@ -110,5 +121,7 @@ def generate(types: Types, indent_size: int = 4, max_array_size: int = 10) -> st
         emit(f"void makeup_dump_{name}({name} *value) {{")
         gen_printer(type, "(*value)")
         emit("}")
+
+    emit("#endif")
 
     return output.getvalue()
