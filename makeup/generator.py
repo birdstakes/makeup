@@ -26,8 +26,7 @@ def generate(types: Types, indent_size: int = 4, max_array_size: int = 10) -> st
     def gen_printer(type: Type, expr: str, indent: int = 0) -> None:
         match type:
             case BuiltinType(names):
-                # TODO try to handle these correctly
-                if "float" in names:
+                if "float" in names or "double" in names:
                     emit(f"MAKEUP_PRINT_FLOAT({expr});")
                 elif "unsigned" in names:
                     emit(f"MAKEUP_PRINT_UNSIGNED({expr});")
@@ -92,11 +91,11 @@ def generate(types: Types, indent_size: int = 4, max_array_size: int = 10) -> st
     emit("#endif")
 
     emit("#ifndef MAKEUP_PRINT_SIGNED")
-    emit('#define MAKEUP_PRINT_SIGNED(i) MAKEUP_PRINT("%d", i)')
+    emit('#define MAKEUP_PRINT_SIGNED(i) MAKEUP_PRINT("%ld", (long)i)')
     emit("#endif")
 
     emit("#ifndef MAKEUP_PRINT_UNSIGNED")
-    emit('#define MAKEUP_PRINT_UNSIGNED(u) MAKEUP_PRINT("%u", u)')
+    emit('#define MAKEUP_PRINT_UNSIGNED(u) MAKEUP_PRINT("%lu", (unsigned long)u)')
     emit("#endif")
 
     emit("#ifndef MAKEUP_PRINT_FLOAT")
