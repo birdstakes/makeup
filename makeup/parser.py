@@ -71,10 +71,6 @@ def parse(input: str) -> Types:
             if isinstance(node.dim, c_ast.Constant):
                 return ArrayType(get_type(node.type), int(node.dim.value, 0))
             else:
-                # TODO
-                # it might be an enum or something
-                # if so maybe generated code could just use the enum's name
-                # kinda hacky but probably works most if not all of the time
                 return UnhandledType()
 
         elif isinstance(node, c_ast.Typedef):
