@@ -24,11 +24,11 @@ def generate(
         output.write(text)
         output.write("\n")
 
-    def gen_indent(depth: int) -> None:
-        spaces = " " * (depth * indent_size)
+    def gen_indent(indent: int) -> None:
+        spaces = " " * (indent * indent_size)
         emit(f'MAKEUP_PRINT("{spaces}");')
 
-    def gen_printer(type: Type, expr: str, depth: int = 0) -> None:
+    def gen_printer(type: Type, expr: str, depth: int = 0, indent: int = 0) -> None:
         if depth > max_depth and not isinstance(type, BuiltinType):
             emit('MAKEUP_PRINT("...");')
             return
@@ -46,13 +46,13 @@ def generate(
                 # TODO generate a for loop
                 emit('MAKEUP_PRINT("[\\n");')
                 for i in range(min(size, max_array_size)):
-                    gen_indent(depth + 1)
-                    gen_printer(type, f"{expr}[{i}]", depth + 1)
+                    gen_indent(indent + 1)
+                    gen_printer(type, f"{expr}[{i}]", depth + 1, indent + 1)
                     emit('MAKEUP_PRINT(",\\n");')
                 if size > max_array_size:
-                    gen_indent(depth + 1)
+                    gen_indent(indent + 1)
                     emit('MAKEUP_PRINT("...\\n");')
-                gen_indent(depth)
+                gen_indent(indent)
                 emit('MAKEUP_PRINT("]");')
 
             case PointerType(type):
@@ -65,17 +65,17 @@ def generate(
                         emit(f"MAKEUP_PRINT_POINTER({expr});")
                         emit(f"if({expr}) {{")
                         emit('MAKEUP_PRINT(" => ");')
-                        gen_printer(type, f"(*{expr})", depth + 1)
+                        gen_printer(type, f"(*{expr})", depth + 1, indent)
                         emit("}")
 
             case StructType(fields):
                 emit('MAKEUP_PRINT("{\\n");')
                 for name, type in fields:
-                    gen_indent(depth + 1)
+                    gen_indent(indent + 1)
                     emit(f'MAKEUP_PRINT("{name} = ");')
-                    gen_printer(type, f"{expr}.{name}", depth + 1)
+                    gen_printer(type, f"{expr}.{name}", depth + 1, indent + 1)
                     emit('MAKEUP_PRINT(",\\n");')
-                gen_indent(depth)
+                gen_indent(indent)
                 emit('MAKEUP_PRINT("}");')
 
             case EnumType(enumerators):
