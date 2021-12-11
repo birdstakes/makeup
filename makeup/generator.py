@@ -71,9 +71,6 @@ def generate(types: Types, indent_size: int = 4, max_array_size: int = 10) -> st
             case UnhandledType():
                 emit('MAKEUP_PRINT("unhandled");')
 
-            case _:
-                raise NotImplementedError(type)
-
     for name, type in types.enums.items():
         emit(f"void makeup_dump_enum_{name}(enum {name} *value);")
 
