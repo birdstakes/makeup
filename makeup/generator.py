@@ -42,6 +42,9 @@ def generate(
                 else:
                     emit(f"MAKEUP_PRINT_SIGNED({expr});")
 
+            case ArrayType(BuiltinType(names=["char"]), size):
+                emit(f"MAKEUP_PRINT_STRING({expr});")
+
             case ArrayType(type, size):
                 # TODO generate a for loop
                 emit('MAKEUP_PRINT("[\\n");')
