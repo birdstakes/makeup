@@ -51,6 +51,9 @@ Apply makeup
 // Defaults to MAKEUP_PRINT("0x%p", p)
 #define MAKEUP_PRINT_POINTER(p) MAKEUP_PRINT("cool pointer 0x%p", p)
 
+// Defaults to if(s) { MAKEUP_PRINT("\"%s\"", s); } else { MAKEUP_PRINT("NULL"); }
+#define MAKEUP_PRINT_STRING(s) MAKEUP_PRINT("cool string %s", s)
+
 #include "pretty.h"
 
 int main(void) {

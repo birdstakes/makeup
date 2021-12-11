@@ -47,7 +47,11 @@ def generate(types: Types, indent_size: int = 2, max_array_size: int = 10) -> st
                 emit('MAKEUP_PRINT("]");')
 
             case PointerType(type):
-                emit(f"MAKEUP_PRINT_POINTER({expr});")
+                match type:
+                    case BuiltinType(names=["char"]):
+                        emit(f"MAKEUP_PRINT_STRING({expr});")
+                    case _:
+                        emit(f"MAKEUP_PRINT_POINTER({expr});")
 
             case StructType(fields):
                 emit('MAKEUP_PRINT("{\\n");')
@@ -101,6 +105,14 @@ def generate(types: Types, indent_size: int = 2, max_array_size: int = 10) -> st
 
     emit("#ifndef MAKEUP_PRINT_POINTER")
     emit('#define MAKEUP_PRINT_POINTER(p) MAKEUP_PRINT("0x%p", p)')
+    emit("#endif")
+
+    emit("#ifndef MAKEUP_PRINT_STRING")
+    emit(
+        "#define MAKEUP_PRINT_STRING(s)"
+        'if(s) { MAKEUP_PRINT("\\"%s\\"", s); }'
+        'else { MAKEUP_PRINT("NULL"); }'
+    )
     emit("#endif")
 
     for name, type in types.enums.items():
