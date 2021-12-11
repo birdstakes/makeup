@@ -12,7 +12,7 @@ from .parser import (
 )
 
 
-def generate(types: Types, indent_size: int = 4, max_array_size: int = 10) -> str:
+def generate(types: Types, indent_size: int = 2, max_array_size: int = 10) -> str:
     output = StringIO()
 
     def emit(text: str = "") -> None:
