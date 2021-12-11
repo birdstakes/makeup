@@ -12,18 +12,27 @@ from .parser import (
 )
 
 
-def generate(types: Types, indent_size: int = 2, max_array_size: int = 10) -> str:
+def generate(
+    types: Types,
+    indent_size: int = 2,
+    max_array_size: int = 10,
+    max_depth: int = 4,
+) -> str:
     output = StringIO()
 
     def emit(text: str = "") -> None:
         output.write(text)
         output.write("\n")
 
-    def gen_indent(indent: int) -> None:
-        spaces = " " * indent
+    def gen_indent(depth: int) -> None:
+        spaces = " " * (depth * indent_size)
         emit(f'MAKEUP_PRINT("{spaces}");')
 
-    def gen_printer(type: Type, expr: str, indent: int = 0) -> None:
+    def gen_printer(type: Type, expr: str, depth: int = 0) -> None:
+        if depth > max_depth and not isinstance(type, BuiltinType):
+            emit('MAKEUP_PRINT("...");')
+            return
+
         match type:
             case BuiltinType(names):
                 if "float" in names or "double" in names:
@@ -37,30 +46,36 @@ def generate(types: Types, indent_size: int = 2, max_array_size: int = 10) -> st
                 # TODO generate a for loop
                 emit('MAKEUP_PRINT("[\\n");')
                 for i in range(min(size, max_array_size)):
-                    gen_indent(indent + indent_size)
-                    gen_printer(type, f"{expr}[{i}]", indent + indent_size)
+                    gen_indent(depth + 1)
+                    gen_printer(type, f"{expr}[{i}]", depth + 1)
                     emit('MAKEUP_PRINT(",\\n");')
                 if size > max_array_size:
-                    gen_indent(indent + indent_size)
+                    gen_indent(depth + 1)
                     emit('MAKEUP_PRINT("...\\n");')
-                gen_indent(indent)
+                gen_indent(depth)
                 emit('MAKEUP_PRINT("]");')
 
             case PointerType(type):
                 match type:
                     case BuiltinType(names=["char"]):
                         emit(f"MAKEUP_PRINT_STRING({expr});")
+                    case UnhandledType():
+                        emit(f"MAKEUP_PRINT_POINTER({expr});")
                     case _:
                         emit(f"MAKEUP_PRINT_POINTER({expr});")
+                        emit(f"if({expr}) {{")
+                        emit('MAKEUP_PRINT(" => ");')
+                        gen_printer(type, f"(*{expr})", depth + 1)
+                        emit("}")
 
             case StructType(fields):
                 emit('MAKEUP_PRINT("{\\n");')
                 for name, type in fields:
-                    gen_indent(indent + indent_size)
+                    gen_indent(depth + 1)
                     emit(f'MAKEUP_PRINT("{name} = ");')
-                    gen_printer(type, f"{expr}.{name}", indent + indent_size)
+                    gen_printer(type, f"{expr}.{name}", depth + 1)
                     emit('MAKEUP_PRINT(",\\n");')
-                gen_indent(indent)
+                gen_indent(depth)
                 emit('MAKEUP_PRINT("}");')
 
             case EnumType(enumerators):
