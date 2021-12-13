@@ -22,7 +22,7 @@ Generate makeup
 
 ```
 # Preprocess first for all but the simplest cases
-gcc -E header.h | makeup - pretty.h
+gcc -E header.h | makeup - makeup.h
 ```
 
 Apply makeup
@@ -30,11 +30,8 @@ Apply makeup
 ```c
 #include "header.h"
 
-// There must be one file in which MAKEUP_IMPLEMENTATION has been defined
-// before #including the generated header.
-#define MAKEUP_IMPLEMENTATION
-
 // Optional: override print functions
+// See the top of the generated header for more
 
 // Defaults to printf
 // #define MAKEUP_PRINT my_cool_printf
@@ -42,19 +39,13 @@ Apply makeup
 // Defaults to MAKEUP_PRINT("%ld", (long)i)
 #define MAKEUP_PRINT_SIGNED(i) MAKEUP_PRINT("cool signed number %ld", (long)i)
 
-// Defaults to MAKEUP_PRINT("%lu", (unsigned long)u)
-#define MAKEUP_PRINT_UNSIGNED(u) MAKEUP_PRINT("cool unsigned number %lu", (unsigned long)u)
+// Defaults to nothing
+#define MAKEUP_PRINT_OFFSET(o) MAKEUP_PRINT("%04x ", o)
 
-// Defaults to MAKEUP_PRINT("%f", f)
-#define MAKEUP_PRINT_FLOAT(f) MAKEUP_PRINT("cool float %f", f)
-
-// Defaults to MAKEUP_PRINT("0x%p", p)
-#define MAKEUP_PRINT_POINTER(p) MAKEUP_PRINT("cool pointer 0x%p", p)
-
-// Defaults to if(s) { MAKEUP_PRINT("\"%s\"", s); } else { MAKEUP_PRINT("NULL"); }
-#define MAKEUP_PRINT_STRING(s) MAKEUP_PRINT("cool string %s", s)
-
-#include "pretty.h"
+// There must be one file in which MAKEUP_IMPLEMENTATION has been defined
+// before #including the generated header.
+#define MAKEUP_IMPLEMENTATION
+#include "makeup.h"
 
 int main(void) {
     my_cool_type value = {0};

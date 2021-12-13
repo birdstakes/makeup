@@ -99,15 +99,6 @@ def generate(
             case UnhandledType():
                 emit('MAKEUP_PRINT("unhandled");')
 
-    for name, type in types.enums.items():
-        emit(f"void makeup_dump_enum_{name}(enum {name} *value);")
-
-    for name, type in types.structs.items():
-        emit(f"void makeup_dump_struct_{name}(struct {name} *value);")
-
-    for name, type in types.typedefs.items():
-        emit(f"void makeup_dump_{name}({name} *value);")
-
     emit("#ifdef MAKEUP_IMPLEMENTATION")
 
     emit("#ifndef MAKEUP_PRINT")
@@ -142,6 +133,19 @@ def generate(
         'else { MAKEUP_PRINT("NULL"); }'
     )
     emit("#endif")
+
+    emit("#endif")
+
+    for name, type in types.enums.items():
+        emit(f"void makeup_dump_enum_{name}(enum {name} *value);")
+
+    for name, type in types.structs.items():
+        emit(f"void makeup_dump_struct_{name}(struct {name} *value);")
+
+    for name, type in types.typedefs.items():
+        emit(f"void makeup_dump_{name}({name} *value);")
+
+    emit("#ifdef MAKEUP_IMPLEMENTATION")
 
     for name, type in types.enums.items():
         emit(f"void makeup_dump_enum_{name}(enum {name} *value) {{")
