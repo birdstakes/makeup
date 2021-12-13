@@ -17,6 +17,7 @@ def generate(
     indent_size: int = 2,
     max_array_size: int = 10,
     max_depth: int = 4,
+    follow_pointers: bool = True,
 ) -> str:
     output = StringIO()
 
@@ -58,18 +59,19 @@ def generate(
                 gen_indent(indent)
                 emit('MAKEUP_PRINT("]");')
 
+            case PointerType(BuiltinType(names=["char"])):
+                emit(f"MAKEUP_PRINT_STRING({expr});")
+
+            case PointerType(UnhandledType()):
+                emit(f"MAKEUP_PRINT_POINTER({expr});")
+
             case PointerType(type):
-                match type:
-                    case BuiltinType(names=["char"]):
-                        emit(f"MAKEUP_PRINT_STRING({expr});")
-                    case UnhandledType():
-                        emit(f"MAKEUP_PRINT_POINTER({expr});")
-                    case _:
-                        emit(f"MAKEUP_PRINT_POINTER({expr});")
-                        emit(f"if({expr}) {{")
-                        emit('MAKEUP_PRINT(" => ");')
-                        gen_printer(type, f"(*{expr})", depth + 1, indent)
-                        emit("}")
+                emit(f"MAKEUP_PRINT_POINTER({expr});")
+                if follow_pointers:
+                    emit(f"if({expr}) {{")
+                    emit('MAKEUP_PRINT(" => ");')
+                    gen_printer(type, f"(*{expr})", depth + 1, indent)
+                    emit("}")
 
             case StructType(fields):
                 emit('MAKEUP_PRINT("{\\n");')
