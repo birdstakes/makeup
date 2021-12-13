@@ -77,6 +77,10 @@ def generate(
                 emit('MAKEUP_PRINT("{\\n");')
                 for name, type in fields:
                     gen_indent(indent + 1)
+                    emit(
+                        "MAKEUP_PRINT_OFFSET"
+                        f"(((char*)&{expr}.{name} - (char*)&{expr}));"
+                    )
                     emit(f'MAKEUP_PRINT("{name} = ");')
                     gen_printer(type, f"{expr}.{name}", depth + 1, indent + 1)
                     emit('MAKEUP_PRINT(",\\n");')
@@ -125,6 +129,10 @@ def generate(
 
     emit("#ifndef MAKEUP_PRINT_POINTER")
     emit('#define MAKEUP_PRINT_POINTER(p) MAKEUP_PRINT("0x%p", p)')
+    emit("#endif")
+
+    emit("#ifndef MAKEUP_PRINT_OFFSET")
+    emit("#define MAKEUP_PRINT_OFFSET(o)")
     emit("#endif")
 
     emit("#ifndef MAKEUP_PRINT_STRING")
